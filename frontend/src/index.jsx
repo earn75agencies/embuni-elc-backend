@@ -3,17 +3,15 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './styles/globals.css';
 
-console.log('Starting React app...');
+const root = ReactDOM.createRoot(document.getElementById('root'));
 
-// Error handling for React rendering
-try {
-  console.log('Attempting to render App...');
-  ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
+root.render(
+  <React.StrictMode>
+    <ErrorBoundary>
       <App />
-    </React.StrictMode>
-  );
-  console.log('App rendered successfully');
+    </ErrorBoundary>
+  </React.StrictMode>
+);
 } catch (error) {
   console.error('React rendering error:', error);
   document.getElementById('root').innerHTML = `

@@ -164,6 +164,100 @@ export const API_ENDPOINTS = {
     VERIFY: '/recaptcha/verify'
   },
   
+  // Courses/Learning
+  COURSES: {
+    LIST: '/courses',
+    CREATE: '/courses',
+    UPDATE: (id) => `/courses/${id}`,
+    DELETE: (id) => `/courses/${id}`,
+    GET: (id) => `/courses/${id}`,
+    ENROLL: '/courses/enroll',
+    ENROLLMENTS: '/courses/enrollments/my',
+    ENROLLMENT_DETAIL: (id) => `/courses/enrollments/${id}`,
+    PROGRESS_UPDATE: '/courses/progress',
+    PROGRESS_GET: (courseId) => `/courses/${courseId}/progress`,
+    ASSESSMENT_SUBMIT: '/courses/assessments/submit',
+    ANALYTICS: (courseId) => `/courses/${courseId}/analytics`
+  },
+  
+  // Mentorship
+  MENTORSHIP: {
+    MENTORS: '/mentorship/mentors',
+    MENTORSHIP_REQUESTS: '/mentorship/requests',
+    CREATE_REQUEST: '/mentorship/requests',
+    UPDATE_REQUEST: (id) => `/mentorship/requests/${id}`,
+    SESSIONS: '/mentorship/sessions',
+    CREATE_SESSION: '/mentorship/sessions',
+    UPDATE_SESSION: (id) => `/mentorship/sessions/${id}`,
+    FEEDBACK: '/mentorship/feedback',
+    STATS: '/mentorship/stats'
+  },
+  
+  // Internships
+  INTERNSHIPS: {
+    LIST: '/internships',
+    CREATE: '/internships',
+    UPDATE: (id) => `/internships/${id}`,
+    DELETE: (id) => `/internships/${id}`,
+    GET: (id) => `/internships/${id}`,
+    APPLICATIONS: '/internships/applications',
+    APPLY: '/internships/apply',
+    MY_APPLICATIONS: '/internships/my-applications'
+  },
+  
+  // Alumni
+  ALUMNI: {
+    LIST: '/alumni',
+    CREATE: '/alumni',
+    UPDATE: (id) => `/alumni/${id}`,
+    DELETE: (id) => `/alumni/${id}`,
+    GET: (id) => `/alumni/${id}`,
+    PROFILE: '/alumni/profile',
+    SUCCESS_STORIES: '/alumni/success-stories',
+    NETWORK: '/alumni/network'
+  },
+  
+  // Testimonials
+  TESTIMONIALS: {
+    LIST: '/testimonials',
+    CREATE: '/testimonials',
+    UPDATE: (id) => `/testimonials/${id}`,
+    DELETE: (id) => `/testimonials/${id}`,
+    GET: (id) => `/testimonials/${id}`,
+    FEATURED: '/testimonials/featured',
+    APPROVE: (id) => `/testimonials/${id}/approve`
+  },
+  
+  // Partners
+  PARTNERS: {
+    LIST: '/partners',
+    CREATE: '/partners',
+    UPDATE: (id) => `/partners/${id}`,
+    DELETE: (id) => `/partners/${id}`,
+    GET: (id) => `/partners/${id}`,
+    FEATURED: '/partners/featured'
+  },
+  
+  // Design Settings
+  DESIGN_SETTINGS: {
+    GET: '/design-settings',
+    UPDATE: '/design-settings',
+    HERO: '/design-settings/hero',
+    COLORS: '/design-settings/colors',
+    FONTS: '/design-settings/fonts',
+    LAYOUT: '/design-settings/layout'
+  },
+  
+  // Contact Messages
+  CONTACT_MESSAGES: {
+    LIST: '/contact-messages',
+    CREATE: '/contact-messages',
+    UPDATE: (id) => `/contact-messages/${id}`,
+    DELETE: (id) => `/contact-messages/${id}`,
+    GET: (id) => `/contact-messages/${id}`,
+    MARK_READ: (id) => `/contact-messages/${id}/mark-read`
+  },
+  
   // Health Check
   HEALTH: '/health'
 };

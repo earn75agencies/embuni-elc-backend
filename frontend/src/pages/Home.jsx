@@ -13,27 +13,46 @@ import EventCard from '../components/EventCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { eventService } from '../services/eventService';
 import { postService } from '../services/postService';
+import { galleryService } from '../services/galleryService';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
 const Home = () => {
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [featuredPosts, setFeaturedPosts] = useState([]);
+  const [galleryImages, setGalleryImages] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [eventsData, postsData] = await Promise.all([
+      const [eventsData, postsData, galleryData] = await Promise.all([
         eventService.getAllEvents({ upcoming: true, limit: 3 }),
-        postService.getAllPosts({ featured: true, limit: 3 })
+        postService.getAllPosts({ featured: true, limit: 3 }),
+        galleryService.getAllItems({ limit: 5, featured: true })
       ]);
       setUpcomingEvents(eventsData.events || []);
       setFeaturedPosts(postsData.posts || []);
+      
+      // Extract image URLs from gallery items
+      const images = (galleryData.items || [])
+        .filter(item => item.imageUrl)
+        .map(item => item.imageUrl)
+        .slice(0, 5);
+      
+      // Fallback to placeholder images if no gallery images
+      setGalleryImages(images.length > 0 ? images : [
+        'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=500',
+        'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500',
+        'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=500',
+        'https://images.unsplash.com/photo-1552664730-d307ca884978?w=500',
+        'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=500'
+      ]);
     } catch (error) {
       console.error('Error fetching data:', error);
       // Set empty arrays on error to prevent UI breaking
       setUpcomingEvents([]);
       setFeaturedPosts([]);
+      setGalleryImages([]);
     } finally {
       setLoading(false);
     }
@@ -81,13 +100,7 @@ const Home = () => {
     ]
   }), []);
 
-  const galleryImages = useMemo(() => [
-    'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=500',
-    'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500',
-    'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=500',
-    'https://images.unsplash.com/photo-1552664730-d307ca884978?w=500',
-    'https://images.unsplash.com/photo-1531482615713-2afd69097998?w=500'
-  ], []);
+
 
   if (loading) {
     return <LoadingSpinner fullScreen text="Loading homepage..." />;

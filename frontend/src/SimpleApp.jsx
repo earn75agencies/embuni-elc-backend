@@ -6,8 +6,6 @@ const Home = () => <div style={{ padding: '20px' }}><h1>Home Page</h1><p>Home pa
 const About = () => <div style={{ padding: '20px' }}><h1>About Page</h1><p>About page content here</p></div>;
 
 function SimpleApp() {
-  console.log('SimpleApp rendering...');
-  
   return (
     <Router>
       <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>

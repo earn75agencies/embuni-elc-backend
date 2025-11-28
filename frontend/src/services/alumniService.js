@@ -1,52 +1,132 @@
-import axios from 'axios';
+import apiClient from './apiClient';
+import { API_ENDPOINTS } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-const alumniService = {
+export const alumniService = {
   // Get all alumni with filtering and pagination
-  getAlumni: async (params = {}) => {
+  async getAllAlumni(params = {}) {
     try {
-      const response = await axios.get(`${API_BASE_URL}/alumni`, { params });
+      const response = await apiClient.get(API_ENDPOINTS.ALUMNI.LIST, { params });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error fetching alumni:', error);
+      throw error;
     }
   },
 
   // Get alumni profile by ID
-  getAlumniProfile: async (id) => {
+  async getAlumniById(id) {
     try {
-      const response = await axios.get(`${API_BASE_URL}/alumni/${id}`);
+      const response = await apiClient.get(API_ENDPOINTS.ALUMNI.GET(id));
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error(`Error fetching alumni ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Create alumni profile
+  async createAlumni(token, alumniData) {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.ALUMNI.CREATE, alumniData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating alumni profile:', error);
+      throw error;
     }
   },
 
   // Update alumni profile
-  updateProfile: async (id, profileData) => {
+  async updateAlumni(token, id, profileData) {
     try {
-      const response = await axios.put(`${API_BASE_URL}/alumni/${id}`, profileData);
+      const response = await apiClient.put(API_ENDPOINTS.ALUMNI.UPDATE(id), profileData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error updating alumni profile:', error);
+      throw error;
     }
   },
 
-  // Send connection request
-  sendConnectionRequest: async (alumniId, message) => {
+  // Delete alumni profile
+  async deleteAlumni(token, id) {
     try {
-      const response = await axios.post(`${API_BASE_URL}/alumni/${alumniId}/connect`, { message });
+      const response = await apiClient.delete(API_ENDPOINTS.ALUMNI.DELETE(id), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error deleting alumni profile:', error);
+      throw error;
     }
   },
 
-  // Respond to connection request
-  respondToConnectionRequest: async (requestId, action) => {
+  // Get user's alumni profile
+  async getMyProfile(token) {
     try {
-      const response = await axios.put(`${API_BASE_URL}/alumni/connections/${requestId}`, { action });
+      const response = await apiClient.get(API_ENDPOINTS.ALUMNI.PROFILE, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching alumni profile:', error);
+      throw error;
+    }
+  },
+
+  // Get success stories
+  async getSuccessStories(params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.ALUMNI.SUCCESS_STORIES, { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching success stories:', error);
+      throw error;
+    }
+  },
+
+  // Get alumni network
+  async getNetwork(token, params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.ALUMNI.NETWORK, { 
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching alumni network:', error);
+      throw error;
+    }
+  },
+
+  // Legacy methods for backward compatibility
+  async getAlumni(params = {}) {
+    return this.getAllAlumni(params);
+  },
+
+  async getAlumniProfile(id) {
+    return this.getAlumniById(id);
+  },
+
+  async updateProfile(id, profileData) {
+    return this.updateAlumni(profileData.token || '', id, profileData);
+  },
+
+  async sendConnectionRequest(alumniId, message) {
+    try {
+      const response = await apiClient.post(`${API_ENDPOINTS.ALUMNI.LIST}/${alumniId}/connect`, { message });
+      return response.data;
+    } catch (error) {
+      console.error('Error sending connection request:', error);
+      throw error;
+    }
+  },
+
+  async respondToConnectionRequest(requestId, action) {
+    try {
+      const response = await apiClient.put(`${API_ENDPOINTS.ALUMNI.LIST}/connections/${requestId}`, { action });
       return response.data;
     } catch (error) {
       throw error.response?.data || error.message;

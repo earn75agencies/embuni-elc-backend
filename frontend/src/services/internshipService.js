@@ -1,53 +1,117 @@
 import apiClient from './apiClient';
+import { API_ENDPOINTS } from '../config/api';
 
-const internshipService = {
+export const internshipService = {
   // Get all internships with filtering
-  getInternships: async (params = {}) => {
-    const queryParams = new URLSearchParams();
-    Object.keys(params).forEach(key => {
-      if (params[key] !== undefined && params[key] !== '') {
-        queryParams.append(key, params[key]);
-      }
-    });
-    
-    const response = await apiClient.get(`/api/internships?${queryParams}`);
-    return response;
+  async getAllInternships(params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.INTERNSHIPS.LIST, { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching internships:', error);
+      throw error;
+    }
   },
 
   // Get internship by ID
-  getInternshipById: async (id) => {
-    const response = await apiClient.get(`/api/internships/${id}`);
-    return response;
+  async getInternshipById(id) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.INTERNSHIPS.GET(id));
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching internship ${id}:`, error);
+      throw error;
+    }
   },
 
   // Create new internship
-  createInternship: async (internshipData) => {
-    const response = await apiClient.post('/api/internships', internshipData);
-    return response;
+  async createInternship(token, internshipData) {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.INTERNSHIPS.CREATE, internshipData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating internship:', error);
+      throw error;
+    }
   },
 
   // Update internship
-  updateInternship: async (id, internshipData) => {
-    const response = await apiClient.put(`/api/internships/${id}`, internshipData);
-    return response;
+  async updateInternship(token, id, internshipData) {
+    try {
+      const response = await apiClient.put(API_ENDPOINTS.INTERNSHIPS.UPDATE(id), internshipData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating internship:', error);
+      throw error;
+    }
   },
 
   // Delete internship
-  deleteInternship: async (id) => {
-    const response = await apiClient.delete(`/api/internships/${id}`);
-    return response;
+  async deleteInternship(token, id) {
+    try {
+      const response = await apiClient.delete(API_ENDPOINTS.INTERNSHIPS.DELETE(id), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting internship:', error);
+      throw error;
+    }
   },
 
   // Apply to internship
-  applyToInternship: async (id, applicationData) => {
-    const response = await apiClient.post(`/api/internships/${id}/apply`, applicationData);
-    return response;
+  async applyToInternship(token, id, applicationData) {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.INTERNSHIPS.APPLY.replace(':id', id), applicationData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error applying to internship:', error);
+      throw error;
+    }
   },
 
   // Get student's applications
-  getStudentApplications: async (params = {}) => {
-    const queryParams = new URLSearchParams();
-    Object.keys(params).forEach(key => {
+  async getMyApplications(token, params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.INTERNSHIPS.MY_APPLICATIONS, { 
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      throw error;
+    }
+  },
+
+  // Get all applications (for admins)
+  async getApplications(token, params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.INTERNSHIPS.APPLICATIONS, { 
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all applications:', error);
+      throw error;
+    }
+  },
+
+  // Legacy methods for backward compatibility
+  async getInternships(params = {}) {
+    return this.getAllInternships(params);
+  },
+
+  async getStudentApplications(params = {}) {
+    return this.getMyApplications(params.token || '', params);
+  },
       if (params[key] !== undefined && params[key] !== '') {
         queryParams.append(key, params[key]);
       }

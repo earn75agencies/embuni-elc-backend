@@ -1,17 +1,149 @@
 import apiClient from './apiClient';
+import { API_ENDPOINTS } from '../config/api';
 
-const mentorshipService = {
-  // Get all mentorships for the current user
-  getMentorships: async (params = {}) => {
-    const queryParams = new URLSearchParams();
-    Object.keys(params).forEach(key => {
-      if (params[key] !== undefined && params[key] !== '') {
-        queryParams.append(key, params[key]);
-      }
-    });
-    
-    const response = await apiClient.get(`/api/mentorship?${queryParams}`);
-    return response;
+export const mentorshipService = {
+  // Get all mentors
+  async getMentors(params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.MENTORSHIP.MENTORS, { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching mentors:', error);
+      throw error;
+    }
+  },
+
+  // Get mentorship requests
+  async getMentorshipRequests(token, params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.MENTORSHIP.MENTORSHIP_REQUESTS, { 
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching mentorship requests:', error);
+      throw error;
+    }
+  },
+
+  // Create mentorship request
+  async createMentorshipRequest(token, requestData) {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.MENTORSHIP.CREATE_REQUEST, requestData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating mentorship request:', error);
+      throw error;
+    }
+  },
+
+  // Update mentorship request
+  async updateMentorshipRequest(token, id, updateData) {
+    try {
+      const response = await apiClient.put(API_ENDPOINTS.MENTORSHIP.UPDATE_REQUEST(id), updateData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating mentorship request:', error);
+      throw error;
+    }
+  },
+
+  // Get mentorship sessions
+  async getSessions(token, params = {}) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.MENTORSHIP.SESSIONS, { 
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      throw error;
+    }
+  },
+
+  // Create mentorship session
+  async createSession(token, sessionData) {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.MENTORSHIP.CREATE_SESSION, sessionData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating session:', error);
+      throw error;
+    }
+  },
+
+  // Update mentorship session
+  async updateSession(token, id, sessionData) {
+    try {
+      const response = await apiClient.put(API_ENDPOINTS.MENTORSHIP.UPDATE_SESSION(id), sessionData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating session:', error);
+      throw error;
+    }
+  },
+
+  // Submit feedback
+  async submitFeedback(token, feedbackData) {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.MENTORSHIP.FEEDBACK, feedbackData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      throw error;
+    }
+  },
+
+  // Get mentorship stats
+  async getStats(token) {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.MENTORSHIP.STATS, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching mentorship stats:', error);
+      throw error;
+    }
+  },
+
+  // Legacy methods for backward compatibility
+  async getMentorships(params = {}) {
+    return this.getMentorshipRequests(params.token || '', params);
+  },
+
+  async getMentorshipById(id) {
+    try {
+      const response = await apiClient.get(`${API_ENDPOINTS.MENTORSHIP.MENTORSHIP_REQUESTS}/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching mentorship:', error);
+      throw error;
+    }
+  },
+
+  async findMentors(params = {}) {
+    return this.getMentors(params);
+  },
+
+  async sendRequest(mentorId, data) {
+    return this.createMentorshipRequest(data.token || '', { mentorId, ...data });
+  },
+
+  async respondToRequest(id, data) {
+    return this.updateMentorshipRequest(data.token || '', id, data);
   },
 
   // Get mentorship by ID

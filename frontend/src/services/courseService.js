@@ -1,104 +1,160 @@
-import axios from 'axios';
+import apiClient from './apiClient';
+import { API_ENDPOINTS } from '../config/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-const courseService = {
+export const courseService = {
   // Get all courses with filtering and pagination
-  getCourses: async (params = {}) => {
+  async getAllCourses(params = {}) {
     try {
-      const response = await axios.get(`${API_BASE_URL}/courses`, { params });
+      const response = await apiClient.get(API_ENDPOINTS.COURSES.LIST, { params });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error fetching courses:', error);
+      throw error;
     }
   },
 
   // Get course by ID
-  getCourseById: async (id) => {
+  async getCourseById(id) {
     try {
-      const response = await axios.get(`${API_BASE_URL}/courses/${id}`);
+      const response = await apiClient.get(API_ENDPOINTS.COURSES.GET(id));
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error(`Error fetching course ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // Create new course
+  async createCourse(token, courseData) {
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.COURSES.CREATE, courseData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating course:', error);
+      throw error;
+    }
+  },
+
+  // Update course
+  async updateCourse(token, id, courseData) {
+    try {
+      const response = await apiClient.put(API_ENDPOINTS.COURSES.UPDATE(id), courseData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating course:', error);
+      throw error;
+    }
+  },
+
+  // Delete course
+  async deleteCourse(token, id) {
+    try {
+      const response = await apiClient.delete(API_ENDPOINTS.COURSES.DELETE(id), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      throw error;
     }
   },
 
   // Enroll in a course
-  enrollInCourse: async (courseId) => {
+  async enrollInCourse(token, courseId) {
     try {
-      const response = await axios.post(`${API_BASE_URL}/courses/enroll`, { courseId });
+      const response = await apiClient.post(API_ENDPOINTS.COURSES.ENROLL, { courseId }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error enrolling in course:', error);
+      throw error;
     }
   },
 
   // Get user's enrollments
-  getUserEnrollments: async (status = '') => {
+  async getUserEnrollments(token, status = '') {
     try {
       const params = status ? { status } : {};
-      const response = await axios.get(`${API_BASE_URL}/courses/enrollments/my`, { params });
+      const response = await apiClient.get(API_ENDPOINTS.COURSES.ENROLLMENTS, { 
+        params,
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error fetching enrollments:', error);
+      throw error;
     }
   },
 
   // Get enrollment details
-  getEnrollmentById: async (enrollmentId) => {
+  async getEnrollmentById(token, enrollmentId) {
     try {
-      const response = await axios.get(`${API_BASE_URL}/courses/enrollments/${enrollmentId}`);
+      const response = await apiClient.get(API_ENDPOINTS.COURSES.ENROLLMENT_DETAIL(enrollmentId), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error fetching enrollment details:', error);
+      throw error;
     }
   },
 
   // Update lesson progress
-  updateProgress: async (progressData) => {
+  async updateProgress(token, progressData) {
     try {
-      const response = await axios.post(`${API_BASE_URL}/courses/progress`, progressData);
+      const response = await apiClient.post(API_ENDPOINTS.COURSES.PROGRESS_UPDATE, progressData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error updating progress:', error);
+      throw error;
     }
   },
 
   // Get course progress
-  getCourseProgress: async (courseId) => {
+  async getCourseProgress(token, courseId) {
     try {
-      const response = await axios.get(`${API_BASE_URL}/courses/${courseId}/progress`);
+      const response = await apiClient.get(API_ENDPOINTS.COURSES.PROGRESS_GET(courseId), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error fetching course progress:', error);
+      throw error;
     }
   },
 
   // Submit assessment
-  submitAssessment: async (assessmentData) => {
+  async submitAssessment(token, assessmentData) {
     try {
-      const response = await axios.post(`${API_BASE_URL}/courses/assessments/submit`, assessmentData);
+      const response = await apiClient.post(API_ENDPOINTS.COURSES.ASSESSMENT_SUBMIT, assessmentData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error submitting assessment:', error);
+      throw error;
     }
   },
 
   // Get course analytics (for instructors)
-  getCourseAnalytics: async (courseId) => {
+  async getCourseAnalytics(token, courseId) {
     try {
-      const response = await axios.get(`${API_BASE_URL}/courses/${courseId}/analytics`);
+      const response = await apiClient.get(API_ENDPOINTS.COURSES.ANALYTICS(courseId), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error) {
-      throw error.response?.data || error.message;
+      console.error('Error fetching course analytics:', error);
+      throw error;
     }
-  },
-
-  // Create new course (for instructors)
-  createCourse: async (courseData) => {
-    try {
-      const response = await axios.post(`${API_BASE_URL}/courses`, courseData);
-      return response.data;
+  }
     } catch (error) {
       throw error.response?.data || error.message;
     }
