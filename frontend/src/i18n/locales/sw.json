@@ -1,0 +1,120 @@
+{
+  "common": {
+    "home": "Nyumbani",
+    "about": "Kuhusu",
+    "programs": "Mipango",
+    "events": "Matukio",
+    "news": "Habari",
+    "gallery": "Picha",
+    "resources": "Rasilimali",
+    "contact": "Wasiliana",
+    "login": "Ingia",
+    "logout": "Toka",
+    "dashboard": "Dashibodi",
+    "profile": "Wasifu",
+    "save": "Hifadhi",
+    "cancel": "Ghairi",
+    "delete": "Futa",
+    "edit": "Hariri",
+    "create": "Unda",
+    "update": "Sasisha",
+    "search": "Tafuta",
+    "filter": "Chuja",
+    "loading": "Inapakia...",
+    "error": "Hitilafu",
+    "success": "Mafanikio",
+    "submit": "Wasilisha",
+    "close": "Funga",
+    "view": "Angalia",
+    "back": "Rudi",
+    "next": "Ifuatayo",
+    "previous": "Iliyotangulia",
+    "noData": "Hakuna data inayopatikana",
+    "confirm": "Thibitisha",
+    "yes": "Ndiyo",
+    "no": "Hapana"
+  },
+  "navbar": {
+    "title": "Viongozi wa Haki",
+    "subtitle": "Chuo Kikuu cha Embu",
+    "adminPanel": "Paneli ya Msimamizi",
+    "userPortal": "Lango la Mtumiaji"
+  },
+  "footer": {
+    "description": "Kuwawezesha viongozi wa baadaye kupitia haki na ubora",
+    "quickLinks": "Viungo vya Haraka",
+    "contactUs": "Wasiliana Nasi",
+    "followUs": "Tufuate",
+    "copyright": "© {{year}} Mpango wa Viongozi wa Haki. Haki zote zimehifadhiwa."
+  },
+  "auth": {
+    "login": "Ingia",
+    "logout": "Toka",
+    "email": "Barua pepe",
+    "password": "Nenosiri",
+    "forgotPassword": "Umesahau nenosiri?",
+    "rememberMe": "Nikumbuke",
+    "loginButton": "Ingia",
+    "loginSuccess": "Umeingia kwa mafanikio",
+    "loginError": "Barua pepe au nenosiri si sahihi",
+    "logoutSuccess": "Umetoka kwa mafanikio"
+  },
+  "events": {
+    "title": "Matukio",
+    "upcoming": "Matukio Yanayokuja",
+    "past": "Matukio ya Zamani",
+    "noEvents": "Hakuna matukio yaliyopatikana",
+    "viewDetails": "Angalia Maelezo",
+    "register": "Jiandikishe",
+    "registered": "Umeandikishwa",
+    "date": "Tarehe",
+    "time": "Muda",
+    "location": "Mahali",
+    "attendees": "Washiriki"
+  },
+  "news": {
+    "title": "Habari na Matukio",
+    "readMore": "Soma Zaidi",
+    "published": "Imechapishwa",
+    "noPosts": "Hakuna machapisho yaliyopatikana"
+  },
+  "gallery": {
+    "title": "Picha",
+    "viewImage": "Angalia Picha",
+    "noImages": "Hakuna picha zilizopatikana"
+  },
+  "contact": {
+    "title": "Wasiliana Nasi",
+    "name": "Jina",
+    "email": "Barua pepe",
+    "message": "Ujumbe",
+    "send": "Tuma Ujumbe",
+    "success": "Ujumbe umetumwa kwa mafanikio",
+    "error": "Imeshindwa kutuma ujumbe"
+  },
+  "admin": {
+    "dashboard": "Dashibodi ya Msimamizi",
+    "manageEvents": "Simamia Matukio",
+    "manageGallery": "Simamia Picha",
+    "manageMembers": "Simamia Wanachama",
+    "managePosts": "Simamia Machapisho",
+    "settings": "Mipangilio"
+  },
+  "date": {
+    "today": "Leo",
+    "yesterday": "Jana",
+    "tomorrow": "Kesho",
+    "thisWeek": "Wiki Hii",
+    "lastWeek": "Wiki Iliyopita",
+    "thisMonth": "Mwezi Huu",
+    "lastMonth": "Mwezi Uliopita"
+  },
+  "errors": {
+    "generic": "Hitilafu imetokea. Tafadhali jaribu tena.",
+    "network": "Hitilafu ya mtandao. Tafadhali angalia muunganisho wako.",
+    "unauthorized": "Huna ruhusa ya kufanya kitendo hiki.",
+    "notFound": "Rasilimali iliyoombwa haijapatikana.",
+    "serverError": "Hitilafu ya seva. Tafadhali jaribu tena baadaye."
+  }
+}
+
