@@ -1,4 +1,5 @@
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const RedisStore = require('rate-limit-redis');
 const Redis = require('ioredis');
 
@@ -33,8 +34,12 @@ const apiLimiter = rateLimit({
     return req.path === '/health' || req.path.startsWith('/uploads/');
   },
   keyGenerator: (req) => {
-    // Use IP for unauthenticated requests, user ID for authenticated
-    return req.user ? `user:${req.user._id}` : `ip:${req.ip}`;
+    // Use user ID for authenticated requests, IP for unauthenticated
+    if (req.user) {
+      return `user:${req.user._id}`;
+    }
+    // Use ipKeyGenerator for proper IPv6 support
+    return `ip:${ipKeyGenerator(req)}`;
   }
 });
 
@@ -56,7 +61,11 @@ const authLimiter = rateLimit({
   keyGenerator: (req) => {
     // Use email as key for login attempts, fallback to IP
     const email = req.body.email ? req.body.email.toLowerCase().trim() : null;
-    return email ? `auth:${email}` : `auth:ip:${req.ip}`;
+    if (email) {
+      return `auth:${email}`;
+    }
+    // Use ipKeyGenerator for proper IPv6 support
+    return `auth:ip:${ipKeyGenerator(req)}`;
   },
   handler: (req, res) => {
     console.warn(`Rate limit exceeded for authentication: ${req.body.email || req.ip}`);
@@ -83,7 +92,11 @@ const strictLimiter = rateLimit({
     sendCommand: (...args) => redisClient.call(...args)
   }) : undefined,
   keyGenerator: (req) => {
-    return req.user ? `strict:user:${req.user._id}` : `strict:ip:${req.ip}`;
+    if (req.user) {
+      return `strict:user:${req.user._id}`;
+    }
+    // Use ipKeyGenerator for proper IPv6 support
+    return `strict:ip:${ipKeyGenerator(req)}`;
   },
   handler: (req, res) => {
     console.warn(`Strict rate limit exceeded: ${req.user?.email || req.ip} on ${req.path}`);
@@ -110,7 +123,11 @@ const createLimiter = rateLimit({
     sendCommand: (...args) => redisClient.call(...args)
   }) : undefined,
   keyGenerator: (req) => {
-    return req.user ? `create:user:${req.user._id}` : `create:ip:${req.ip}`;
+    if (req.user) {
+      return `create:user:${req.user._id}`;
+    }
+    // Use ipKeyGenerator for proper IPv6 support
+    return `create:ip:${ipKeyGenerator(req)}`;
   },
   skip: (req) => {
     // Skip for admins
@@ -142,7 +159,11 @@ const commentLimiter = rateLimit({
     sendCommand: (...args) => redisClient.call(...args)
   }) : undefined,
   keyGenerator: (req) => {
-    return req.user ? `comment:user:${req.user._id}` : `comment:ip:${req.ip}`;
+    if (req.user) {
+      return `comment:user:${req.user._id}`;
+    }
+    // Use ipKeyGenerator for proper IPv6 support
+    return `comment:ip:${ipKeyGenerator(req)}`;
   },
   handler: (req, res) => {
     console.warn(`Comment rate limit exceeded: ${req.user?.email || req.ip} on ${req.path}`);
@@ -169,7 +190,8 @@ const contactLimiter = rateLimit({
     sendCommand: (...args) => redisClient.call(...args)
   }) : undefined,
   keyGenerator: (req) => {
-    return `contact:ip:${req.ip}`;
+    // Use ipKeyGenerator for proper IPv6 support
+    return `contact:ip:${ipKeyGenerator(req)}`;
   },
   handler: (req, res) => {
     console.warn(`Contact form rate limit exceeded: ${req.ip}`);
@@ -197,7 +219,11 @@ const passwordResetLimiter = rateLimit({
   }) : undefined,
   keyGenerator: (req) => {
     const email = req.body.email ? req.body.email.toLowerCase().trim() : null;
-    return email ? `reset:${email}` : `reset:ip:${req.ip}`;
+    if (email) {
+      return `reset:${email}`;
+    }
+    // Use ipKeyGenerator for proper IPv6 support
+    return `reset:ip:${ipKeyGenerator(req)}`;
   },
   handler: (req, res) => {
     console.warn(`Password reset rate limit exceeded: ${req.body.email || req.ip}`);
