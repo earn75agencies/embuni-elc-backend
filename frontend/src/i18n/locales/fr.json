@@ -1,0 +1,120 @@
+{
+  "common": {
+    "home": "Accueil",
+    "about": "À propos",
+    "programs": "Programmes",
+    "events": "Événements",
+    "news": "Actualités",
+    "gallery": "Galerie",
+    "resources": "Ressources",
+    "contact": "Contact",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "dashboard": "Tableau de bord",
+    "profile": "Profil",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "update": "Mettre à jour",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "submit": "Soumettre",
+    "close": "Fermer",
+    "view": "Voir",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "noData": "Aucune donnée disponible",
+    "confirm": "Confirmer",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "navbar": {
+    "title": "Leaders Équité",
+    "subtitle": "Université d'Embu",
+    "adminPanel": "Panneau d'administration",
+    "userPortal": "Portail utilisateur"
+  },
+  "footer": {
+    "description": "Autonomiser les futurs leaders grâce à l'équité et l'excellence",
+    "quickLinks": "Liens rapides",
+    "contactUs": "Contactez-nous",
+    "followUs": "Suivez-nous",
+    "copyright": "© {{year}} Programme Leaders Équité. Tous droits réservés."
+  },
+  "auth": {
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "forgotPassword": "Mot de passe oublié?",
+    "rememberMe": "Se souvenir de moi",
+    "loginButton": "Se connecter",
+    "loginSuccess": "Connexion réussie",
+    "loginError": "E-mail ou mot de passe invalide",
+    "logoutSuccess": "Déconnexion réussie"
+  },
+  "events": {
+    "title": "Événements",
+    "upcoming": "Événements à venir",
+    "past": "Événements passés",
+    "noEvents": "Aucun événement trouvé",
+    "viewDetails": "Voir les détails",
+    "register": "S'inscrire",
+    "registered": "Inscrit",
+    "date": "Date",
+    "time": "Heure",
+    "location": "Lieu",
+    "attendees": "Participants"
+  },
+  "news": {
+    "title": "Actualités et mises à jour",
+    "readMore": "Lire la suite",
+    "published": "Publié",
+    "noPosts": "Aucun article trouvé"
+  },
+  "gallery": {
+    "title": "Galerie",
+    "viewImage": "Voir l'image",
+    "noImages": "Aucune image trouvée"
+  },
+  "contact": {
+    "title": "Contactez-nous",
+    "name": "Nom",
+    "email": "E-mail",
+    "message": "Message",
+    "send": "Envoyer le message",
+    "success": "Message envoyé avec succès",
+    "error": "Échec de l'envoi du message"
+  },
+  "admin": {
+    "dashboard": "Tableau de bord administrateur",
+    "manageEvents": "Gérer les événements",
+    "manageGallery": "Gérer la galerie",
+    "manageMembers": "Gérer les membres",
+    "managePosts": "Gérer les articles",
+    "settings": "Paramètres"
+  },
+  "date": {
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "tomorrow": "Demain",
+    "thisWeek": "Cette semaine",
+    "lastWeek": "La semaine dernière",
+    "thisMonth": "Ce mois",
+    "lastMonth": "Le mois dernier"
+  },
+  "errors": {
+    "generic": "Une erreur s'est produite. Veuillez réessayer.",
+    "network": "Erreur réseau. Veuillez vérifier votre connexion.",
+    "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
+    "notFound": "La ressource demandée est introuvable.",
+    "serverError": "Erreur serveur. Veuillez réessayer plus tard."
+  }
+}
+
