@@ -38,15 +38,7 @@ const app = express();
 // Set security HTTP headers
 app.use(helmet());
 
-// Enable CORS with configuration
-const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  maxAge: 86400 // 24 hours
-};
-app.use(cors(corsOptions));
+// CORS configuration is loaded from ./config/cors
 
 // Rate limiting
 const limiter = rateLimit({
