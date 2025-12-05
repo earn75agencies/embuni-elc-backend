@@ -20,7 +20,7 @@ const Vote = require('../models/Vote');
 const VotingLog = require('../models/VotingLog');
 const VotingLink = require('../models/VotingLink');
 const ContactInfo = require('../models/ContactInfo');
-const { APIError, asyncHandler } = require('../middleware/errorMiddleware');
+const { APIError, asyncHandler } = require('../middleware/error.middleware');
 const { ROLE_PERMISSIONS } = require('../constants/adminRoles');
 const logger = require('../utils/logger');
 const cache = require('../utils/cache');
@@ -46,8 +46,503 @@ const roleDepartmentMap = {
  * @returns {string} Department name
  */
 const resolveDepartment = (role, fallback) => {
-  if (fallback) {return fallback;}
+  if (fallback) return fallback;
   return roleDepartmentMap[role] || 'Administration';
+};
+
+/**
+ * Get admin dashboard statistics
+ * @route GET /api/admin/dashboard/stats
+ * @access Private (Admin)
+ */
+exports.getDashboardStats = asyncHandler(async (req, res) => {
+  try {
+    // Get counts for various entities
+    const [
+      totalUsers,
+      totalAdmins,
+      activeEvents,
+      totalPosts,
+      totalMembers,
+      pendingApprovals
+    ] = await Promise.all([
+      User.countDocuments(),
+      Admin.countDocuments({ isActive: true }),
+      Event.countDocuments({ status: 'active' }),
+      Post.countDocuments({ status: 'published' }),
+      Member.countDocuments({ status: 'active' }),
+      // Add other counts as needed
+      Admin.aggregate([
+        { $match: { isActive: true } },
+        { $group: { _id: '$adminRole', count: { $sum: 1 } } }
+      ])
+    ]);
+
+    // Get recent activities
+    const activities = await Admin.aggregate([
+      { $match: { isActive: true } },
+      { $sort: { lastActivity: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      { $unwind: '$user' },
+      {
+        $project: {
+          _id: 0,
+          name: { $concat: ['$user.firstName', ' ', '$user.lastName'] },
+          role: '$adminRole',
+          lastActivity: 1,
+          status: 1
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        counts: {
+          totalUsers,
+          totalAdmins,
+          activeEvents,
+          totalPosts,
+          totalMembers,
+          pendingApprovals
+        },
+        recentActivity: activities,
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching dashboard stats:', error);
+    throw new APIError('Failed to fetch dashboard statistics', 500);
+  }
+});
+
+/**
+ * Get admin profile
+ * @route GET /api/admin/profile
+ * @access Private (Admin)
+ */
+exports.getAdminProfile = asyncHandler(async (req, res) => {
+  try {
+    const admin = await Admin.findOne({ user: req.user.id })
+      .populate('user', 'firstName lastName email avatar')
+      .select('-__v -createdAt -updatedAt');
+
+    if (!admin) {
+      throw new APIError('Admin profile not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    logger.error('Error fetching admin profile:', error);
+    throw new APIError('Failed to fetch admin profile', 500);
+  }
+});
+
+/**
+ * Update admin profile
+ * @route PUT /api/admin/profile
+ * @access Private (Admin)
+ */
+exports.updateAdminProfile = asyncHandler(async (req, res) => {
+  try {
+    const { firstName, lastName, avatar, phone } = req.body;
+    const updates = {};
+
+    if (firstName || lastName) {
+      updates.user = {};
+      if (firstName) updates.user.firstName = firstName;
+      if (lastName) updates.user.lastName = lastName;
+      if (avatar) updates.user.avatar = avatar;
+      if (phone) updates.phone = phone;
+    }
+
+    const admin = await Admin.findOneAndUpdate(
+      { user: req.user.id },
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).populate('user', 'firstName lastName email avatar');
+
+    if (!admin) {
+      throw new APIError('Admin not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    logger.error('Error updating admin profile:', error);
+    throw new APIError('Failed to update admin profile', 500);
+  }
+});
+
+/**
+ * Get all admins
+ * @route GET /api/admin
+ * @access Private (Super Admin)
+ */
+exports.getAllAdmins = asyncHandler(async (req, res) => {
+  try {
+    const { role, isActive, page = 1, limit = 10, search } = req.query;
+    const query = {};
+
+    // Build query based on filters
+    if (role) query.role = role;
+    if (isActive !== undefined) query.isActive = isActive === 'true';
+    if (search) {
+      query.$or = [
+        { 'user.firstName': { $regex: search, $options: 'i' } },
+        { 'user.lastName': { $regex: search, $options: 'i' } },
+        { 'user.email': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const options = {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      sort: { createdAt: -1 },
+      populate: {
+        path: 'user',
+        select: 'firstName lastName email avatar'
+      }
+    };
+
+    const admins = await Admin.paginate(query, options);
+
+    res.status(200).json({
+      success: true,
+      data: admins.docs,
+      pagination: {
+        total: admins.totalDocs,
+        pages: admins.totalPages,
+        page: admins.page,
+        limit: admins.limit
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching admins:', error);
+    throw new APIError('Failed to fetch admins', 500);
+  }
+});
+
+/**
+ * Get admin by ID
+ * @route GET /api/admin/:adminId
+ * @access Private (Super Admin)
+ */
+exports.getAdminById = asyncHandler(async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.params.adminId)
+      .populate('user', 'firstName lastName email avatar')
+      .select('-__v');
+
+    if (!admin) {
+      throw new APIError('Admin not found', 404);
+    }
+
+    // Check permissions (only super admin or the admin themselves can view)
+    if (req.user.role !== 'super_admin' && admin.user._id.toString() !== req.user.id) {
+      throw new APIError('Not authorized to view this admin', 403);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    logger.error(`Error fetching admin with ID ${req.params.adminId}:`, error);
+    throw new APIError('Failed to fetch admin', 500);
+  }
+});
+
+/**
+ * Create new admin (Super Admin only)
+ * @route POST /api/admin
+ * @access Private (Super Admin)
+ */
+exports.createAdmin = asyncHandler(async (req, res) => {
+  try {
+    const { userId, adminRole, department, permissions } = req.body;
+
+    // Validate input
+    if (!userId || !adminRole) {
+      throw new APIError('User ID and admin role are required', 400);
+    }
+
+    // Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new APIError('User not found', 404);
+    }
+
+    // Check if user is already an admin
+    const existingAdmin = await Admin.findOne({ user: userId });
+    if (existingAdmin) {
+      throw new APIError('User is already an admin', 400);
+    }
+
+    // Create admin
+    const admin = await Admin.create({
+      user: userId,
+      adminRole,
+      department: department || resolveDepartment(adminRole),
+      permissions: permissions || [],
+      isActive: true,
+      createdBy: req.user.id
+    });
+
+    // Update user role if needed
+    if (!user.roles.includes('admin')) {
+      user.roles.push('admin');
+      await user.save();
+    }
+
+    const populatedAdmin = await Admin.findById(admin._id)
+      .populate('user', 'firstName lastName email');
+
+    res.status(201).json({
+      success: true,
+      data: populatedAdmin
+    });
+  } catch (error) {
+    logger.error('Error creating admin:', error);
+    throw new APIError('Failed to create admin', 500);
+  }
+});
+
+/**
+ * Update admin (Super Admin only)
+ * @route PUT /api/admin/:adminId
+ * @access Private (Super Admin)
+ */
+exports.updateAdmin = asyncHandler(async (req, res) => {
+  try {
+    const { adminRole, department, permissions, isActive } = req.body;
+    const updates = {};
+
+    if (adminRole) updates.adminRole = adminRole;
+    if (department) updates.department = department;
+    if (permissions) updates.permissions = permissions;
+    if (typeof isActive === 'boolean') updates.isActive = isActive;
+
+    const admin = await Admin.findByIdAndUpdate(
+      req.params.adminId,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).populate('user', 'firstName lastName email');
+
+    if (!admin) {
+      throw new APIError('Admin not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    logger.error('Error updating admin:', error);
+    throw new APIError('Failed to update admin', 500);
+  }
+});
+
+/**
+ * Delete admin (Super Admin only)
+ * @route DELETE /api/admin/:adminId
+ * @access Private (Super Admin)
+ */
+exports.deleteAdmin = asyncHandler(async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.params.adminId);
+    
+    if (!admin) {
+      throw new APIError('Admin not found', 404);
+    }
+
+    // Don't allow deleting yourself
+    if (admin.user.toString() === req.user.id) {
+      throw new APIError('Cannot delete your own admin account', 400);
+    }
+
+    await Admin.findByIdAndDelete(req.params.adminId);
+
+    // Optionally, remove admin role from user
+    await User.findByIdAndUpdate(admin.user, {
+      $pull: { roles: 'admin' }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {}
+    });
+  } catch (error) {
+    logger.error('Error deleting admin:', error);
+    throw new APIError('Failed to delete admin', 500);
+  }
+});
+
+/**
+ * Get admin activity logs
+ * @route GET /api/admin/logs/activity
+ * @access Private (View Logs Permission)
+ */
+exports.getActivityLogs = asyncHandler(async (req, res) => {
+  try {
+    const { action, adminId, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const query = {};
+
+    // Build query based on filters
+    if (action) query.action = action;
+    if (adminId) query.admin = adminId;
+    if (startDate || endDate) {
+      query.timestamp = {};
+      if (startDate) query.timestamp.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.timestamp.$lte = end;
+      }
+    }
+
+    const options = {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+      sort: { timestamp: -1 },
+      populate: {
+        path: 'admin',
+        select: 'user',
+        populate: {
+          path: 'user',
+          select: 'firstName lastName email'
+        }
+      }
+    };
+
+    const logs = await Admin.paginate(query, options);
+
+    res.status(200).json({
+      success: true,
+      data: logs.docs,
+      pagination: {
+        total: logs.totalDocs,
+        pages: logs.totalPages,
+        page: logs.page,
+        limit: logs.limit
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching activity logs:', error);
+    throw new APIError('Failed to fetch activity logs', 500);
+  }
+});
+
+/**
+ * Get admin statistics
+ * @route GET /api/admin/stats/roles
+ * @access Private (View Admin Stats Permission)
+ */
+exports.getAdminStats = asyncHandler(async (req, res) => {
+  try {
+    // Get admin count by role
+    const roleStats = await Admin.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$adminRole', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Get admin activity stats
+    const activityStats = await Admin.aggregate([
+      { $match: { isActive: true } },
+      {
+        $project: {
+          role: '$adminRole',
+          lastActivity: 1,
+          isActive: 1,
+          daysSinceLastActivity: {
+            $divide: [
+              { $subtract: [new Date(), '$lastActivity'] },
+              1000 * 60 * 60 * 24 // Convert to days
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: '$role',
+          total: { $sum: 1 },
+          active: {
+            $sum: {
+              $cond: [{ $lt: ['$daysSinceLastActivity', 7] }, 1, 0] // Active if last activity < 7 days
+            }
+          },
+          inactive: {
+            $sum: {
+              $cond: [{ $gte: ['$daysSinceLastActivity', 7] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        roleStats,
+        activityStats
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching admin statistics:', error);
+    throw new APIError('Failed to fetch admin statistics', 500);
+  }
+});
+
+/**
+ * Update admin status (activate/deactivate)
+ * @route PATCH /api/admin/:adminId/status
+ * @access Private (Manage Admins Permission)
+ */
+exports.updateAdminStatus = asyncHandler(async (req, res) => {
+  try {
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      throw new APIError('Invalid status value', 400);
+    }
+
+    // Don't allow deactivating yourself
+    if (req.params.adminId === req.user.id) {
+      throw new APIError('Cannot deactivate your own account', 400);
+    }
+
+    const admin = await Admin.findByIdAndUpdate(
+      req.params.adminId,
+      { isActive },
+      { new: true }
+    ).populate('user', 'firstName lastName email');
+
+    if (!admin) {
+      throw new APIError('Admin not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: admin
+    });
+  } catch (error) {
+    logger.error('Error updating admin status:', error);
+    throw new APIError('Failed to update admin status', 500);
+  }
+});
 };
 
 /**

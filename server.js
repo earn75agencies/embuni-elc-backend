@@ -5,7 +5,15 @@ const morgan = require('morgan');
 const session = require('express-session');
 const passport = require('passport');
 const compression = require('compression');
-require('dotenv').config();
+const helmet = require('helmet');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+const hpp = require('hpp');
+const rateLimit = require('express-rate-limit');
+const path = require('path');
+const fs = require('fs');
+const https = require('https');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // Validate environment variables
 const { validateEnv } = require('./utils/envValidator');
@@ -19,6 +27,102 @@ try {
 // Initialize logger
 const logger = require('./utils/logger');
 const requestLogger = require('./middleware/requestLogger');
+
+// Initialize Express app
+const app = express();
+
+// ======================
+// Security Middleware
+// ======================
+
+// Set security HTTP headers
+app.use(helmet());
+
+// Enable CORS with configuration
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+};
+app.use(cors(corsOptions));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000, // 15 minutes
+  max: process.env.RATE_LIMIT_MAX || 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+app.use(limiter);
+
+// Body parser, reading data from body into req.body
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Data sanitization against NoSQL query injection
+app.use(mongoSanitize());
+
+// Data sanitization against XSS
+app.use(xss());
+
+// Prevent parameter pollution
+app.use(hpp({
+  whitelist: [
+    'duration', 'ratingsQuantity', 'ratingsAverage', 'maxGroupSize', 'difficulty', 'price'
+  ]
+}));
+
+// Compression middleware (should be placed before routes)
+app.use(compression());
+
+// Trust proxy (important when behind a proxy like Nginx)
+app.set('trust proxy', 1);
+
+// Session configuration
+const sessionConfig = {
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Only send cookies over HTTPS in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'strict'
+  },
+  store: process.env.NODE_ENV === 'production' 
+    ? new (require('connect-mongo')(session))({
+        mongooseConnection: mongoose.connection,
+        ttl: 24 * 60 * 60 // 1 day
+      })
+    : null
+};
+
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // Trust first proxy
+  sessionConfig.cookie.secure = true; // Serve secure cookies
+}
+
+app.use(session(sessionConfig));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Request logging
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  // Log to file in production
+  const accessLogStream = fs.createWriteStream(
+    path.join(__dirname, 'logs/access.log'),
+    { flags: 'a' }
+  );
+  app.use(morgan('combined', { stream: accessLogStream }));
+}
+
+// Custom request logger middleware
+app.use(requestLogger);
 
 
 // Import routes
