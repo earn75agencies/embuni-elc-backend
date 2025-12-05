@@ -152,9 +152,6 @@ const courseRoutes = require('./routes/course.routes');
 // Import passport configuration
 require('./config/passport');
 
-// Initialize Express app
-const app = express();
-
 // Trust proxy - important for rate limiting behind reverse proxies
 app.set('trust proxy', 1);
 
