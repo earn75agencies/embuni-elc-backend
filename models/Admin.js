@@ -32,6 +32,27 @@ const adminSchema = new mongoose.Schema(
       type: [String],
       default: []
     },
+    preferences: {
+      theme: { 
+        type: String, 
+        enum: ['light', 'dark', 'system'], 
+        default: 'system' 
+      },
+      notifications: {
+        email: { type: Boolean, default: true },
+        push: { type: Boolean, default: true },
+        inApp: { type: Boolean, default: true }
+      },
+      language: { 
+        type: String, 
+        default: 'en',
+        enum: ['en', 'es', 'fr', 'sw']
+      },
+      dashboard: {
+        layout: { type: String, default: 'default' },
+        widgets: { type: [String], default: ['stats', 'recentActivity'] }
+      }
+    },
     activityLog: [
       {
         action: String,
@@ -40,43 +61,74 @@ const adminSchema = new mongoose.Schema(
           type: Date,
           default: Date.now
         },
-        details: mongoose.Schema.Types.Mixed
+        details: mongoose.Schema.Types.Mixed,
+        ipAddress: String,
+        userAgent: String
       }
     ],
-    lastLogin: Date,
+    lastLogin: {
+      timestamp: Date,
+      ipAddress: String,
+      userAgent: String
+    },
     isActive: {
       type: Boolean,
-      default: true
+      default: true,
+      index: true
     },
-    notes: String
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+    notes: String,
+    metadata: {
+      timezone: String,
+      lastActive: Date,
+      loginCount: { type: Number, default: 0 }
+    }
   },
-  { timestamps: true }
-);
-
-// Index for faster queries
-adminSchema.index({ user: 1 });
-adminSchema.index({ adminRole: 1 });
-adminSchema.index({ isActive: 1 });
-
-// Ensure only one active admin exists in the system
-// Partial unique index: only one document with isActive: true
-adminSchema.index(
-  { isActive: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { isActive: true },
-    name: 'unique_active_admin'
+  { 
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
 
-// Method to log admin action
-adminSchema.methods.logAction = async function(action, module, details = {}) {
-  this.activityLog.push({
+// Indexes for faster queries
+adminSchema.index({ user: 1 });
+adminSchema.index({ adminRole: 1 });
+adminSchema.index({ isActive: 1 });
+adminSchema.index({ 'activityLog.timestamp': -1 });
+adminSchema.index({ 'metadata.lastActive': -1 });
+
+/**
+ * Virtuals
+ */
+adminSchema.virtual('fullName').get(function() {
+  return this.user?.name || 'Unknown Admin';
+});
+
+adminSchema.virtual('email').get(function() {
+  return this.user?.email || '';
+});
+
+/**
+ * Methods
+ */
+
+// Log admin action with additional context
+adminSchema.methods.logAction = async function(action, module, details = {}, req = {}) {
+  const logEntry = {
     action,
     module,
     details,
-    timestamp: new Date()
-  });
+    timestamp: new Date(),
+    ipAddress: req.ip || req.connection?.remoteAddress,
+    userAgent: req.get('user-agent')
+  };
+
+  this.activityLog.push(logEntry);
+  this.metadata.lastActive = new Date();
 
   // Keep only last 1000 logs per admin
   if (this.activityLog.length > 1000) {
@@ -84,32 +136,167 @@ adminSchema.methods.logAction = async function(action, module, details = {}) {
   }
 
   await this.save();
+  return logEntry;
 };
 
-// Method to update last login
-adminSchema.methods.updateLastLogin = async function() {
-  this.lastLogin = new Date();
+// Update last login with additional context
+adminSchema.methods.updateLastLogin = async function(req = {}) {
+  this.lastLogin = {
+    timestamp: new Date(),
+    ipAddress: req.ip || req.connection?.remoteAddress,
+    userAgent: req.get('user-agent')
+  };
+  
+  this.metadata.lastActive = new Date();
+  this.metadata.loginCount = (this.metadata.loginCount || 0) + 1;
+  
+  if (req.headers['timezone']) {
+    this.metadata.timezone = req.headers['timezone'];
+  }
+  
   await this.save();
+  return this;
 };
 
-// Method to get recent activity
-adminSchema.methods.getRecentActivity = function(limit = 50) {
-  return this.activityLog.slice(-limit).reverse();
+// Get recent activity with pagination
+adminSchema.methods.getRecentActivity = function(limit = 50, page = 1) {
+  const skip = (page - 1) * limit;
+  const total = this.activityLog.length;
+  const activities = this.activityLog
+    .slice()
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(skip, skip + limit);
+    
+  return {
+    data: activities,
+    pagination: {
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      limit
+    }
+  };
 };
 
-// Static method to get active admins by role
-adminSchema.statics.getAdminsByRole = function(adminRole) {
-  return this.find({ adminRole, isActive: true }).populate('user', 'name email');
+// Check if admin has specific permission
+adminSchema.methods.hasPermission = function(permission) {
+  if (this.adminRole === 'super_admin') return true;
+  return this.permissions.includes(permission);
 };
 
-// Static method to deactivate admin
-adminSchema.statics.deactivateAdmin = async function(adminId) {
-  return this.findByIdAndUpdate(adminId, { isActive: false }, { new: true });
+// Get dashboard widgets based on role
+adminSchema.methods.getDashboardWidgets = function() {
+  const defaultWidgets = ['stats', 'recentActivity'];
+  
+  // Add role-specific widgets
+  if (this.adminRole === 'super_admin') {
+    defaultWidgets.push('systemHealth', 'recentLogs');
+  }
+  
+  if (this.adminRole === 'events_admin') {
+    defaultWidgets.push('upcomingEvents');
+  }
+  
+  if (this.adminRole === 'content_admin') {
+    defaultWidgets.push('recentContent', 'contentStats');
+  }
+  
+  return [...new Set([...defaultWidgets, ...(this.preferences.dashboard?.widgets || [])])];
 };
 
-// Static method to activate admin
-adminSchema.statics.activateAdmin = async function(adminId) {
-  return this.findByIdAndUpdate(adminId, { isActive: true }, { new: true });
+/**
+ * Statics
+ */
+
+// Get active admins by role with pagination
+adminSchema.statics.getAdminsByRole = function(role, { page = 1, limit = 20 } = {}) {
+  const skip = (page - 1) * limit;
+  
+  return Promise.all([
+    this.find({ adminRole: role, isActive: true })
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    this.countDocuments({ adminRole: role, isActive: true })
+  ]).then(([admins, total]) => ({
+    data: admins,
+    pagination: {
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      limit
+    }
+  }));
+};
+
+// Deactivate admin with logging
+adminSchema.statics.deactivateAdmin = async function(adminId, deactivatedBy) {
+  const admin = await this.findById(adminId);
+  if (!admin) throw new Error('Admin not found');
+  
+  admin.isActive = false;
+  await admin.logAction('admin_deactivated', 'admin', { deactivatedBy });
+  
+  return admin.save();
+};
+
+// Activate admin with logging
+adminSchema.statics.activateAdmin = async function(adminId, activatedBy) {
+  const admin = await this.findById(adminId);
+  if (!admin) throw new Error('Admin not found');
+  
+  admin.isActive = true;
+  await admin.logAction('admin_activated', 'admin', { activatedBy });
+  
+  return admin.save();
+};
+
+// Find admin by user ID with population
+adminSchema.statics.findByUserId = function(userId) {
+  return this.findOne({ user: userId })
+    .populate('user', 'name email avatar')
+    .lean();
+};
+
+// Get admin statistics
+adminSchema.statics.getAdminStats = async function() {
+  const [
+    totalAdmins,
+    activeAdmins,
+    adminsByRole,
+    recentActivity
+  ] = await Promise.all([
+    this.countDocuments(),
+    this.countDocuments({ isActive: true }),
+    this.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$adminRole', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]),
+    this.aggregate([
+      { $unwind: '$activityLog' },
+      { $sort: { 'activityLog.timestamp': -1 } },
+      { $limit: 10 },
+      { 
+        $project: {
+          _id: 0,
+          admin: '$user',
+          action: '$activityLog.action',
+          module: '$activityLog.module',
+          timestamp: '$activityLog.timestamp'
+        }
+      }
+    ])
+  ]);
+
+  return {
+    totalAdmins,
+    activeAdmins,
+    adminsByRole,
+    recentActivity
+  };
 };
 
 module.exports = mongoose.model('Admin', adminSchema);
