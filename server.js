@@ -160,7 +160,6 @@ app.use(requestTimeout(30000)); // 30 seconds
 const {
   validateContentType,
   validateJSON,
-  sanitizeBody,
   addRequestId,
   logRequest
 } = require('./middleware/requestValidator');
