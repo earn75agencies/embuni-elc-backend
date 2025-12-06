@@ -40,13 +40,17 @@ app.use(helmet());
 
 // CORS configuration is loaded from ./config/cors
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000, // 15 minutes
-  max: process.env.RATE_LIMIT_MAX || 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+// Rate limiting - Ensure values are numbers
+const apiLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes by default
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10), // 100 requests per window by default
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
 });
-app.use(limiter);
+
+// Apply rate limiting to all API routes
+app.use('/api', apiLimiter);
 
 // Body parser, reading data from body into req.body
 app.use(express.json({ limit: '10kb' }));
@@ -207,8 +211,7 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Apply general rate limiting
-app.use(apiLimiter);
+// Rate limiting is already applied to /api routes
 
 // Validate content type
 app.use(validateContentType);
