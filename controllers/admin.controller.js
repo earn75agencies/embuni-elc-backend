@@ -543,7 +543,7 @@ exports.updateAdminStatus = asyncHandler(async (req, res) => {
     throw new APIError('Failed to update admin status', 500);
   }
 });
-};
+
 
 /**
  * Get admin dashboard statistics
