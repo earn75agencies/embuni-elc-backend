@@ -1,6 +1,6 @@
 const AdminGroup = require('../models/AdminGroup');
 const Admin = require('../models/Admin');
-const { APIError, asyncHandler } = require('../middleware/error.middleware');
+const { APIError, asyncHandler } = require('../middleware/errorMiddleware');
 const logger = require('../utils/logger');
 
 /**
