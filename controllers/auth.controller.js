@@ -982,4 +982,4 @@ exports.reactivateAdminCredentials = asyncHandler(async (req, res) => {
     data: admin,
   });
 });
-b;
+
