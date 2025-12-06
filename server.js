@@ -9,10 +9,9 @@ const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
-const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
-const https = require('https');
+const http = require('http');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // Validate environment variables
@@ -38,23 +37,43 @@ const app = express();
 // Set security HTTP headers
 app.use(helmet());
 
-// CORS configuration is loaded from ./config/cors
+// Trust proxy (important when behind a proxy like Nginx)
+app.set('trust proxy', 1);
 
-// Rate limiting - Ensure values are numbers
-const apiLimiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes by default
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10), // 100 requests per window by default
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false
-});
+// CORS configuration - Use enhanced CORS config
+const corsOptions = require('./config/cors');
+app.use(cors(corsOptions));
+
+// Import rate limiters from middleware
+const {
+  apiLimiter,
+  authLimiter,
+  strictLimiter,
+  createLimiter,
+  commentLimiter,
+  contactLimiter,
+  passwordResetLimiter
+} = require('./middleware/rateLimiter');
 
 // Apply rate limiting to all API routes
 app.use('/api', apiLimiter);
 
 // Body parser, reading data from body into req.body
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      res.status(400).json({
+        success: false,
+        error: { message: 'Invalid JSON format' }
+      });
+      throw new Error('Invalid JSON');
+    }
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Data sanitization against NoSQL query injection
 app.use(mongoSanitize());
@@ -69,45 +88,76 @@ app.use(hpp({
   ]
 }));
 
-// Compression middleware (should be placed before routes)
+// Compression middleware
 app.use(compression());
 
-// Trust proxy (important when behind a proxy like Nginx)
-app.set('trust proxy', 1);
+// Request validation middleware
+const {
+  validateContentType,
+  validateJSON,
+  addRequestId,
+  logRequest
+} = require('./middleware/requestValidator');
+
+// Enhanced security middleware
+const { sanitizeBody, schemas } = require('./middleware/inputSanitizer');
+
+// Admin bypass middleware
+const { checkAdmin, adminBypassValidation } = require('./middleware/adminBypass');
+
+// Add request ID for tracking
+app.use(addRequestId);
+
+// Check admin status early (before validation)
+app.use(checkAdmin);
+
+// Validate content type
+app.use(validateContentType);
+
+// Handle JSON parsing errors
+app.use(validateJSON);
 
 // Session configuration
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  secret: process.env.SESSION_SECRET || 'elp-session-secret',
   resave: false,
   saveUninitialized: false,
+  name: 'elp.sid',
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // Only send cookies over HTTPS in production
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
+    sameSite: 'strict',
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'strict'
+    domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
   },
-  store: process.env.NODE_ENV === 'production' 
-    ? new (require('connect-mongo')(session))({
-        mongooseConnection: mongoose.connection,
-        ttl: 24 * 60 * 60 // 1 day
+  store: process.env.NODE_ENV === 'production'
+    ? require('connect-mongo').create({
+        mongoUrl: process.env.MONGO_URI,
+        ttl: 24 * 60 * 60 // 24 hours
       })
-    : null
+    : undefined
 };
-
-if (process.env.NODE_ENV === 'production') {
-  app.set('trust proxy', 1); // Trust first proxy
-  sessionConfig.cookie.secure = true; // Serve secure cookies
-}
 
 app.use(session(sessionConfig));
 
-// Initialize Passport
+// Import passport configuration
+require('./config/passport');
+
+// Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Request logging
+// Request timeout middleware
+const requestTimeout = require('./middleware/timeout');
+app.use(requestTimeout(30000)); // 30 seconds
+
+// Custom request logger middleware
+app.use(requestLogger);
+
+// HTTP request logging (Morgan)
 if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+  app.use(morgan('dev', { stream: logger.stream }));
+  app.use(logRequest);
 } else {
   // Log to file in production
   const accessLogStream = fs.createWriteStream(
@@ -117,9 +167,27 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined', { stream: accessLogStream }));
 }
 
-// Custom request logger middleware
-app.use(requestLogger);
+// Static files for uploads
+app.use('/uploads', express.static('uploads'));
 
+// Favicon route
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
+
+// Health check routes (register early for Render health checks)
+const healthRoutes = require('./routes/health.routes');
+app.use('/api/health', healthRoutes);
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'ELP Backend API',
+    version: '1.0.0',
+    status: 'running',
+    health: '/api/health'
+  });
+});
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -145,131 +213,6 @@ const internshipRoutes = require('./routes/internship.routes');
 const alumniRoutes = require('./routes/alumni.routes');
 const courseRoutes = require('./routes/course.routes');
 
-// Import passport configuration
-require('./config/passport');
-
-// Trust proxy - important for rate limiting behind reverse proxies
-app.set('trust proxy', 1);
-
-
-// CORS configuration - Use enhanced CORS config
-const corsOptions = require('./config/cors');
-app.use(cors(corsOptions));
-
-// Request timeout middleware
-const requestTimeout = require('./middleware/timeout');
-app.use(requestTimeout(30000)); // 30 seconds
-
-// Request validation middleware
-const {
-  validateContentType,
-  validateJSON,
-  addRequestId,
-  logRequest
-} = require('./middleware/requestValidator');
-
-// Enhanced security middleware
-const { sanitizeBody, schemas } = require('./middleware/inputSanitizer');
-const {
-  apiLimiter,
-  authLimiter,
-  strictLimiter,
-  createLimiter,
-  commentLimiter,
-  contactLimiter,
-  passwordResetLimiter
-} = require('./middleware/rateLimiter');
-
-// Admin bypass middleware - check admin status early
-const { checkAdmin, adminBypassValidation } = require('./middleware/adminBypass');
-
-// Add request ID for tracking
-app.use(addRequestId);
-
-// Check admin status early (before validation)
-app.use(checkAdmin);
-
-// Request logging (development)
-if (process.env.NODE_ENV === 'development') {
-  app.use(logRequest);
-}
-
-// Body parser middleware
-app.use(express.json({
-  limit: '10mb',
-  verify: (req, res, buf) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      res.status(400).json({
-        success: false,
-        error: { message: 'Invalid JSON format' }
-      });
-      throw new Error('Invalid JSON');
-    }
-  }
-}));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Rate limiting is already applied to /api routes
-
-// Validate content type
-app.use(validateContentType);
-
-// Enhanced input sanitization (excluding auth routes which handle their own)
-// app.use(enhancedSanitizeBody());
-
-// Handle JSON parsing errors
-app.use(validateJSON);
-
-// Session middleware (required for passport)
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'elp-session-secret',
-  resave: false,
-  saveUninitialized: false,
-  name: 'elp.sid', // Don't use default 'connect.sid'
-  cookie: {
-    secure: process.env.NODE_ENV === 'production', // true in production with HTTPS
-    httpOnly: true,
-    sameSite: 'strict', // CSRF protection
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
-  },
-  // Use secure session store in production
-  store: process.env.NODE_ENV === 'production'
-    ? require('connect-mongo').create({
-      mongoUrl: process.env.MONGO_URI,
-      ttl: 24 * 60 * 60 // 24 hours
-    })
-    : undefined
-}));
-
-
-// Passport middleware
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Compression middleware
-app.use(compression());
-
-// Request logging
-app.use(requestLogger);
-
-// HTTP request logging (Morgan)
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev', { stream: logger.stream }));
-} else {
-  app.use(morgan('combined', { stream: logger.stream }));
-}
-
-// Static files for uploads
-app.use('/uploads', express.static('uploads'));
-
-// Favicon route
-app.get('/favicon.ico', (req, res) => {
-  res.status(204).end(); // No content
-});
-
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/events', sanitizeBody(schemas.content), eventsRoutes);
@@ -288,25 +231,11 @@ app.use('/api/contact', sanitizeBody(schemas.contact), contactRoutes);
 app.use('/api/partners', sanitizeBody(schemas.partner), partnerRoutes);
 app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/design-settings', designSettingsRoutes);
-app.use('/api/contact', sanitizeBody(schemas.contact), contactMessageRoutes);
+app.use('/api/contact-messages', sanitizeBody(schemas.contact), contactMessageRoutes);
 app.use('/api/mentorship', mentorshipRoutes);
 app.use('/api/internships', internshipRoutes);
 app.use('/api/alumni', alumniRoutes);
 app.use('/api/courses', courseRoutes);
-
-// Health check routes (register early for Render health checks)
-const healthRoutes = require('./routes/health.routes');
-app.use('/api/health', healthRoutes);
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    message: 'ELP Backend API',
-    version: '1.0.0',
-    status: 'running',
-    health: '/api/health'
-  });
-});
 
 // 404 handler
 const { notFound, errorHandler } = require('./middleware/errorHandler');
@@ -317,9 +246,6 @@ app.use(errorHandler);
 
 // Database connection
 const connectDB = require('./config/db');
-
-// Start server after DB connection
-const http = require('http');
 const { initializeSocket } = require('./services/socket.service');
 
 // Store server instance for graceful shutdown
@@ -365,8 +291,6 @@ const startServer = async () => {
         logger.info('Server is ready to accept connections');
         logger.info(`Health check: ${backendUrl}/api/health`);
         
-        // Resolve to indicate server started successfully
-        // Server will continue running even after promise resolves
         resolve();
       });
 
@@ -422,14 +346,13 @@ async function gracefulShutdown(signal) {
       });
     }
 
-    // Close MongoDB connection (returns Promise, no callback)
+    // Close MongoDB connection
     if (mongoose.connection && mongoose.connection.readyState === 1) {
       try {
         await mongoose.connection.close();
         logger.info('MongoDB connection closed');
       } catch (dbError) {
         logger.error('Error closing MongoDB connection:', dbError);
-        // Continue with shutdown even if DB close fails
       }
     } else {
       logger.info('MongoDB connection already closed or not connected');
@@ -439,7 +362,6 @@ async function gracefulShutdown(signal) {
     process.exit(0);
   } catch (error) {
     logger.error('Error during graceful shutdown:', error);
-    // Force exit after logging error
     setTimeout(() => {
       process.exit(1);
     }, 1000);
